@@ -11,8 +11,7 @@ type State {
 
 pub fn lex(input: String) -> List(Token) {
   input
-  |> string.split(on: "\n")
-  |> list.flat_map(string.to_graphemes)
+  |> string.to_graphemes
   |> internal_lex(Default, "", [])
   |> list.reverse
 }

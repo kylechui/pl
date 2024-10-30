@@ -9,6 +9,7 @@ pub type Node {
   Identifier(name: String)
   Integer(num: Int)
   String(str: String)
+  EOF
 }
 
 pub fn to_string(node: Node) -> String {
@@ -39,5 +40,6 @@ fn to_json(node: Node) -> json.Json {
         #("name", json.string(name)),
         #("args", json.array(args, to_json)),
       ])
+    EOF -> json.string("EOF")
   }
 }

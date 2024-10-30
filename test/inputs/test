@@ -1,5 +1,0 @@
-fn main(x, y) {
-    let foo = foo(bar, baz)
-    let baz = "hello"
-    foo
-}
