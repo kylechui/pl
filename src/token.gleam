@@ -1,45 +1,45 @@
 import gleam/int
 
 pub type Token {
+  Arrow
+  Comma
   Equals
+  Function
   Identifier(name: String)
+  Integer(num: Int)
   LeftBrace
   LeftBracket
   LeftParenthesis
   Let
-  Integer(num: Int)
   Match
+  Pipe
   Plus
-  Comma
+  Public
   RightBrace
   RightBracket
-  Function
   RightParenthesis
-  Pipe
-  Arrow
   String(str: String)
-  Public
 }
 
 pub fn to_string(token: Token) -> String {
   case token {
+    Arrow -> "Arrow"
+    Comma -> "Comma"
     Equals -> "Equals"
+    Function -> "Function"
     Identifier(name:) -> "Identifier(" <> name <> ")"
+    Integer(num:) -> "Integer(" <> int.to_string(num) <> ")"
     LeftBrace -> "LeftBrace"
     LeftBracket -> "LeftBracket"
     LeftParenthesis -> "LeftParenthesis"
     Let -> "Let"
-    Integer(num:) -> "Number(" <> int.to_string(num) <> ")"
+    Match -> "Match"
+    Pipe -> "Pipe"
     Plus -> "Plus"
+    Public -> "Public"
     RightBrace -> "RightBrace"
     RightBracket -> "RightBracket"
     RightParenthesis -> "RightParenthesis"
     String(str:) -> "String(" <> str <> ")"
-    Match -> "Match"
-    Pipe -> "Pipe"
-    Arrow -> "Arrow"
-    Function -> "Function"
-    Public -> "Public"
-    Comma -> "Comma"
   }
 }

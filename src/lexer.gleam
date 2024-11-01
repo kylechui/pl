@@ -6,7 +6,6 @@ import token.{type Token}
 type State {
   Default
   InString
-  // InMultilineString
 }
 
 pub fn lex(input: String) -> List(Token) {
@@ -27,7 +26,6 @@ fn internal_lex(
     Default ->
       case input {
         [] -> add_identifier(cur, tokens)
-        // TODO: There has to be a better way to do this :skull:
         ["-", ">", ..rest] -> {
           let new_tokens = add_identifier(cur, tokens)
           internal_lex(rest, Default, "", [token.Arrow, ..new_tokens])
@@ -47,6 +45,10 @@ fn internal_lex(
         ["=", ..rest] -> {
           let new_tokens = add_identifier(cur, tokens)
           internal_lex(rest, Default, "", [token.Equals, ..new_tokens])
+        }
+        ["|", ..rest] -> {
+          let new_tokens = add_identifier(cur, tokens)
+          internal_lex(rest, Default, "", [token.Pipe, ..new_tokens])
         }
         ["(", ..rest] -> {
           let new_tokens = add_identifier(cur, tokens)

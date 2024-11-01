@@ -1,236 +1,117 @@
-import gleam/int
-import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
-import gleam/string
-import token.{type Token}
 
-pub type ParserError {
-  MissingToken(expected: Token)
-  UnexpectedToken(expected: Token, got: Token)
-  NoMatchingParsers(tokens: List(Token))
+pub type Value(input_type, output_type) {
+  Value(input: input_type, value: output_type)
 }
 
-pub fn show_error(parser_error: ParserError) -> String {
-  case parser_error {
-    MissingToken(expected:) ->
-      "Token stream terminated unexpectedly; expected: "
-      <> token.to_string(expected)
-    NoMatchingParsers(tokens:) ->
-      "No matching parsers for token stream: "
-      <> { tokens |> list.map(token.to_string) |> string.join(with: ", ") }
-    UnexpectedToken(expected:, got:) ->
-      "Unexpected token found. Expected: "
-      <> token.to_string(expected)
-      <> " but got: "
-      <> token.to_string(got)
-  }
-}
+pub type Parser(input_type, output_type, error_type) =
+  fn(input_type) -> Result(Value(input_type, output_type), error_type)
 
-pub type ParserValue(value) {
-  ParserValue(tokens: List(Token), value: value)
-}
-
-pub type Parser(value) =
-  fn(List(Token)) -> Result(ParserValue(value), ParserError)
-
-pub fn eof() -> Parser(Nil) {
-  fn(tokens: List(Token)) -> Result(ParserValue(Nil), ParserError) {
-    io.println_error("eating eof")
-    case tokens {
-      [] -> Ok(ParserValue(value: Nil, tokens: []))
-      [_, ..] -> Error(NoMatchingParsers(tokens:))
-    }
-  }
-}
-
-pub fn literal(literal: Token) -> Parser(Nil) {
-  fn(tokens: List(Token)) -> Result(ParserValue(Nil), ParserError) {
-    io.println_error("eating literal: " <> token.to_string(literal))
-    case tokens {
-      [] -> Error(MissingToken(expected: literal))
-      [first, ..tokens] if first == literal -> {
-        Ok(ParserValue(tokens:, value: Nil))
-      }
-      [first, ..] -> Error(UnexpectedToken(expected: literal, got: first))
-    }
-  }
-}
-
-pub fn string() -> Parser(String) {
-  fn(tokens: List(Token)) -> Result(ParserValue(String), ParserError) {
-    io.println_error("eating string")
-    case tokens {
-      [] -> Error(MissingToken(expected: token.String("")))
-      [token.String(str:), ..tokens] -> Ok(ParserValue(tokens:, value: str))
-      [first, ..] ->
-        Error(UnexpectedToken(expected: token.String(""), got: first))
-    }
-  }
-}
-
-pub fn int() -> Parser(Int) {
-  fn(tokens: List(Token)) -> Result(ParserValue(Int), ParserError) {
-    io.println_error("eating int")
-    case tokens {
-      [] -> Error(MissingToken(expected: token.Integer(0)))
-      [token.Integer(num:), ..tokens] -> Ok(ParserValue(tokens:, value: num))
-      [first, ..] ->
-        Error(UnexpectedToken(expected: token.Integer(0), got: first))
-    }
-  }
-}
-
-pub fn identifier() -> Parser(String) {
-  fn(tokens: List(Token)) -> Result(ParserValue(String), ParserError) {
-    io.println_error("eating identifier")
-    case tokens {
-      [] -> Error(MissingToken(expected: token.Identifier("")))
-      [token.Identifier(name:), ..tokens] ->
-        Ok(ParserValue(tokens:, value: name))
-      [first, ..] ->
-        Error(UnexpectedToken(expected: token.Identifier(""), got: first))
-    }
-  }
-}
-
-pub fn map(parser: Parser(s), mapper: fn(s) -> t) -> Parser(t) {
-  fn(tokens: List(Token)) -> Result(ParserValue(t), ParserError) {
-    io.println_error("mappin")
-    case parser(tokens) {
+pub fn map(parser: Parser(s, t, e), mapper: fn(t) -> u) -> Parser(s, u, e) {
+  fn(input: s) -> Result(Value(s, u), e) {
+    case parser(input) {
       Error(error) -> Error(error)
-      Ok(ParserValue(value:, tokens:)) ->
-        Ok(ParserValue(value: mapper(value), tokens:))
+      Ok(Value(value:, input:)) -> Ok(Value(value: mapper(value), input:))
     }
   }
 }
 
-pub fn and2(parser1: Parser(a), parser2: Parser(b)) -> Parser(#(a, b)) {
-  fn(tokens: List(Token)) -> Result(ParserValue(#(a, b)), ParserError) {
-    io.println_error("and2")
-    case parser1(tokens) {
-      Error(error) -> {
-        io.println_error("p1 failed")
-        Error(error)
-      }
-      Ok(ParserValue(tokens:, value: value1)) ->
-        case parser2(tokens) {
-          Error(error) -> Error(error)
-          Ok(ParserValue(tokens:, value: value2)) ->
-            Ok(ParserValue(tokens:, value: #(value1, value2)))
-        }
-    }
+pub fn sequential2(
+  parser1: Parser(s, t1, e),
+  parser2: Parser(s, t2, e),
+) -> Parser(s, #(t1, t2), e) {
+  fn(input: s) -> Result(Value(s, #(t1, t2)), e) {
+    use Value(input:, value: value1) <- result.try(parser1(input))
+    use Value(input:, value: value2) <- result.try(parser2(input))
+    Ok(Value(input:, value: #(value1, value2)))
   }
 }
 
-// pub fn and2(parser1: Parser(a), parser2: Parser(b)) -> Parser(#(a, b)) {
-//   fn(tokens: List(Token)) -> Result(ParserValue(#(a, b)), ParserError) {
-//     use ParserValue(tokens:, value: value1) <- result.try(parser1(tokens))
-//     use ParserValue(tokens:, value: value2) <- result.try(parser2(tokens))
-//     Ok(ParserValue(tokens:, value: #(value1, value2)))
-//   }
-// }
-
-pub fn and3(
-  parser1: Parser(a),
-  parser2: Parser(b),
-  parser3: Parser(c),
-) -> Parser(#(a, b, c)) {
-  fn(tokens: List(Token)) -> Result(ParserValue(#(a, b, c)), ParserError) {
-    use ParserValue(tokens:, value: value1) <- result.try(parser1(tokens))
-    use ParserValue(tokens:, value: value2) <- result.try(parser2(tokens))
-    use ParserValue(tokens:, value: value3) <- result.try(parser3(tokens))
-    Ok(ParserValue(tokens:, value: #(value1, value2, value3)))
+pub fn sequential3(
+  parser1: Parser(s, t1, e),
+  parser2: Parser(s, t2, e),
+  parser3: Parser(s, t3, e),
+) -> Parser(s, #(t1, t2, t3), e) {
+  fn(input: s) -> Result(Value(s, #(t1, t2, t3)), e) {
+    use Value(input:, value: value1) <- result.try(parser1(input))
+    use Value(input:, value: value2) <- result.try(parser2(input))
+    use Value(input:, value: value3) <- result.try(parser3(input))
+    Ok(Value(input:, value: #(value1, value2, value3)))
   }
 }
 
-pub fn and4(
-  parser1: Parser(a),
-  parser2: Parser(b),
-  parser3: Parser(c),
-  parser4: Parser(d),
-) -> Parser(#(a, b, c, d)) {
-  fn(tokens: List(Token)) -> Result(ParserValue(#(a, b, c, d)), ParserError) {
-    use ParserValue(tokens:, value: value1) <- result.try(parser1(tokens))
-    use ParserValue(tokens:, value: value2) <- result.try(parser2(tokens))
-    use ParserValue(tokens:, value: value3) <- result.try(parser3(tokens))
-    use ParserValue(tokens:, value: value4) <- result.try(parser4(tokens))
-    Ok(ParserValue(tokens:, value: #(value1, value2, value3, value4)))
+pub fn sequential4(
+  parser1: Parser(s, t1, e),
+  parser2: Parser(s, t2, e),
+  parser3: Parser(s, t3, e),
+  parser4: Parser(s, t4, e),
+) -> Parser(s, #(t1, t2, t3, t4), e) {
+  fn(input: s) -> Result(Value(s, #(t1, t2, t3, t4)), e) {
+    use Value(input:, value: value1) <- result.try(parser1(input))
+    use Value(input:, value: value2) <- result.try(parser2(input))
+    use Value(input:, value: value3) <- result.try(parser3(input))
+    use Value(input:, value: value4) <- result.try(parser4(input))
+    Ok(Value(input:, value: #(value1, value2, value3, value4)))
   }
 }
 
-pub fn and5(
-  parser1: Parser(a),
-  parser2: Parser(b),
-  parser3: Parser(c),
-  parser4: Parser(d),
-  parser5: Parser(e),
-) -> Parser(#(a, b, c, d, e)) {
-  fn(tokens: List(Token)) -> Result(ParserValue(#(a, b, c, d, e)), ParserError) {
-    io.println_error("andin 5")
-    use ParserValue(tokens:, value: value1) <- result.try(parser1(tokens))
-    use ParserValue(tokens:, value: value2) <- result.try(parser2(tokens))
-    use ParserValue(tokens:, value: value3) <- result.try(parser3(tokens))
-    use ParserValue(tokens:, value: value4) <- result.try(parser4(tokens))
-    use ParserValue(tokens:, value: value5) <- result.try(parser5(tokens))
-    Ok(ParserValue(tokens:, value: #(value1, value2, value3, value4, value5)))
+pub fn sequential5(
+  parser1: Parser(s, t1, e),
+  parser2: Parser(s, t2, e),
+  parser3: Parser(s, t3, e),
+  parser4: Parser(s, t4, e),
+  parser5: Parser(s, t5, e),
+) -> Parser(s, #(t1, t2, t3, t4, t5), e) {
+  fn(input: s) -> Result(Value(s, #(t1, t2, t3, t4, t5)), e) {
+    use Value(input:, value: value1) <- result.try(parser1(input))
+    use Value(input:, value: value2) <- result.try(parser2(input))
+    use Value(input:, value: value3) <- result.try(parser3(input))
+    use Value(input:, value: value4) <- result.try(parser4(input))
+    use Value(input:, value: value5) <- result.try(parser5(input))
+    Ok(Value(input:, value: #(value1, value2, value3, value4, value5)))
   }
 }
 
-pub fn and6(
-  parser1: Parser(a),
-  parser2: Parser(b),
-  parser3: Parser(c),
-  parser4: Parser(d),
-  parser5: Parser(e),
-  parser6: Parser(f),
-) -> Parser(#(a, b, c, d, e, f)) {
-  fn(tokens: List(Token)) -> Result(
-    ParserValue(#(a, b, c, d, e, f)),
-    ParserError,
-  ) {
-    use ParserValue(tokens:, value: value1) <- result.try(parser1(tokens))
-    use ParserValue(tokens:, value: value2) <- result.try(parser2(tokens))
-    use ParserValue(tokens:, value: value3) <- result.try(parser3(tokens))
-    use ParserValue(tokens:, value: value4) <- result.try(parser4(tokens))
-    use ParserValue(tokens:, value: value5) <- result.try(parser5(tokens))
-    use ParserValue(tokens:, value: value6) <- result.try(parser6(tokens))
+pub fn sequential6(
+  parser1: Parser(s, t1, e),
+  parser2: Parser(s, t2, e),
+  parser3: Parser(s, t3, e),
+  parser4: Parser(s, t4, e),
+  parser5: Parser(s, t5, e),
+  parser6: Parser(s, t6, e),
+) -> Parser(s, #(t1, t2, t3, t4, t5, t6), e) {
+  fn(input: s) -> Result(Value(s, #(t1, t2, t3, t4, t5, t6)), e) {
+    use Value(input:, value: value1) <- result.try(parser1(input))
+    use Value(input:, value: value2) <- result.try(parser2(input))
+    use Value(input:, value: value3) <- result.try(parser3(input))
+    use Value(input:, value: value4) <- result.try(parser4(input))
+    use Value(input:, value: value5) <- result.try(parser5(input))
+    use Value(input:, value: value6) <- result.try(parser6(input))
+    Ok(Value(input:, value: #(value1, value2, value3, value4, value5, value6)))
+  }
+}
+
+pub fn sequential7(
+  parser1: Parser(s, t1, e),
+  parser2: Parser(s, t2, e),
+  parser3: Parser(s, t3, e),
+  parser4: Parser(s, t4, e),
+  parser5: Parser(s, t5, e),
+  parser6: Parser(s, t6, e),
+  parser7: Parser(s, t7, e),
+) -> Parser(s, #(t1, t2, t3, t4, t5, t6, t7), e) {
+  fn(input: s) -> Result(Value(s, #(t1, t2, t3, t4, t5, t6, t7)), e) {
+    use Value(input:, value: value1) <- result.try(parser1(input))
+    use Value(input:, value: value2) <- result.try(parser2(input))
+    use Value(input:, value: value3) <- result.try(parser3(input))
+    use Value(input:, value: value4) <- result.try(parser4(input))
+    use Value(input:, value: value5) <- result.try(parser5(input))
+    use Value(input:, value: value6) <- result.try(parser6(input))
+    use Value(input:, value: value7) <- result.try(parser7(input))
     Ok(
-      ParserValue(tokens:, value: #(
-        value1,
-        value2,
-        value3,
-        value4,
-        value5,
-        value6,
-      )),
-    )
-  }
-}
-
-pub fn and7(
-  parser1: Parser(a),
-  parser2: Parser(b),
-  parser3: Parser(c),
-  parser4: Parser(d),
-  parser5: Parser(e),
-  parser6: Parser(f),
-  parser7: Parser(g),
-) -> Parser(#(a, b, c, d, e, f, g)) {
-  fn(tokens: List(Token)) -> Result(
-    ParserValue(#(a, b, c, d, e, f, g)),
-    ParserError,
-  ) {
-    use ParserValue(tokens:, value: value1) <- result.try(parser1(tokens))
-    use ParserValue(tokens:, value: value2) <- result.try(parser2(tokens))
-    use ParserValue(tokens:, value: value3) <- result.try(parser3(tokens))
-    use ParserValue(tokens:, value: value4) <- result.try(parser4(tokens))
-    use ParserValue(tokens:, value: value5) <- result.try(parser5(tokens))
-    use ParserValue(tokens:, value: value6) <- result.try(parser6(tokens))
-    use ParserValue(tokens:, value: value7) <- result.try(parser7(tokens))
-    Ok(
-      ParserValue(tokens:, value: #(
+      Value(input:, value: #(
         value1,
         value2,
         value3,
@@ -243,32 +124,27 @@ pub fn and7(
   }
 }
 
-pub fn and8(
-  parser1: Parser(a),
-  parser2: Parser(b),
-  parser3: Parser(c),
-  parser4: Parser(d),
-  parser5: Parser(e),
-  parser6: Parser(f),
-  parser7: Parser(g),
-  parser8: Parser(h),
-) -> Parser(#(a, b, c, d, e, f, g, h)) {
-  io.println_error("ANDING")
-  fn(tokens: List(Token)) -> Result(
-    ParserValue(#(a, b, c, d, e, f, g, h)),
-    ParserError,
-  ) {
-    io.println_error("and")
-    use ParserValue(tokens:, value: value1) <- result.try(parser1(tokens))
-    use ParserValue(tokens:, value: value2) <- result.try(parser2(tokens))
-    use ParserValue(tokens:, value: value3) <- result.try(parser3(tokens))
-    use ParserValue(tokens:, value: value4) <- result.try(parser4(tokens))
-    use ParserValue(tokens:, value: value5) <- result.try(parser5(tokens))
-    use ParserValue(tokens:, value: value6) <- result.try(parser6(tokens))
-    use ParserValue(tokens:, value: value7) <- result.try(parser7(tokens))
-    use ParserValue(tokens:, value: value8) <- result.try(parser8(tokens))
+pub fn sequential8(
+  parser1: Parser(s, t1, e),
+  parser2: Parser(s, t2, e),
+  parser3: Parser(s, t3, e),
+  parser4: Parser(s, t4, e),
+  parser5: Parser(s, t5, e),
+  parser6: Parser(s, t6, e),
+  parser7: Parser(s, t7, e),
+  parser8: Parser(s, t8, e),
+) -> Parser(s, #(t1, t2, t3, t4, t5, t6, t7, t8), e) {
+  fn(input: s) -> Result(Value(s, #(t1, t2, t3, t4, t5, t6, t7, t8)), e) {
+    use Value(input:, value: value1) <- result.try(parser1(input))
+    use Value(input:, value: value2) <- result.try(parser2(input))
+    use Value(input:, value: value3) <- result.try(parser3(input))
+    use Value(input:, value: value4) <- result.try(parser4(input))
+    use Value(input:, value: value5) <- result.try(parser5(input))
+    use Value(input:, value: value6) <- result.try(parser6(input))
+    use Value(input:, value: value7) <- result.try(parser7(input))
+    use Value(input:, value: value8) <- result.try(parser8(input))
     Ok(
-      ParserValue(tokens:, value: #(
+      Value(input:, value: #(
         value1,
         value2,
         value3,
@@ -282,13 +158,13 @@ pub fn and8(
   }
 }
 
-pub fn or(parsers: List(Parser(t))) -> Parser(t) {
-  fn(tokens: List(Token)) -> Result(ParserValue(t), ParserError) {
+pub fn choice(parsers: List(Parser(s, t, e))) -> Parser(s, t, e) {
+  fn(input: s) -> Result(Value(s, t), e) {
     case parsers {
-      [] -> Error(NoMatchingParsers(tokens:))
+      [] -> panic
       [parser, ..parsers] -> {
-        case parser(tokens) {
-          Error(_) -> or(parsers)(tokens)
+        case parser(input) {
+          Error(_) -> choice(parsers)(input)
           Ok(value) -> Ok(value)
         }
       }
@@ -296,52 +172,45 @@ pub fn or(parsers: List(Parser(t))) -> Parser(t) {
   }
 }
 
-/// Will never yield a ParseError, since it can just not parse
-pub fn optional(parser: Parser(t)) -> Parser(Option(t)) {
-  fn(tokens: List(Token)) -> Result(ParserValue(Option(t)), ParserError) {
-    case parser(tokens) {
-      Error(_) -> Ok(ParserValue(value: None, tokens:))
-      Ok(ParserValue(value:, tokens:)) ->
-        Ok(ParserValue(value: Some(value), tokens:))
+/// Will never yield a e, since it can just not parse
+pub fn optional(parser: Parser(s, t, e)) -> Parser(s, Option(t), e) {
+  fn(input: s) -> Result(Value(s, Option(t)), e) {
+    case parser(input) {
+      Error(_) -> Ok(Value(value: None, input:))
+      Ok(Value(value:, input:)) -> Ok(Value(value: Some(value), input:))
     }
   }
 }
 
-fn repeat_helper(parser: Parser(t), tokens: List(Token)) -> ParserValue(List(t)) {
-  io.println_error("repeat helper")
-  case parser(tokens) {
-    Error(_) -> ParserValue(value: [], tokens:)
-    Ok(ParserValue(value:, tokens:)) -> {
-      let ParserValue(value: values, tokens:) = repeat_helper(parser, tokens)
-      ParserValue(value: [value, ..values], tokens:)
+fn repeat_helper(parser: Parser(s, t, e), input: s) -> Value(s, List(t)) {
+  case parser(input) {
+    Error(_) -> Value(value: [], input:)
+    Ok(Value(value:, input:)) -> {
+      let Value(value: values, input:) = repeat_helper(parser, input)
+      Value(value: [value, ..values], input:)
     }
   }
 }
 
-/// Will never yield a ParseError, since it can just not parse
-pub fn repeat(parser: Parser(t)) -> Parser(List(t)) {
-  fn(tokens: List(Token)) -> Result(ParserValue(List(t)), ParserError) {
-    io.println_error("repeating!")
-    let ParserValue(value:, tokens: _) = repeat_helper(parser, tokens)
-    io.println_error(
-      "value.size == " <> { value |> list.length |> int.to_string },
-    )
-    Ok(repeat_helper(parser, tokens))
+/// Will never yield an error, since it can just not parse
+pub fn repeat(parser: Parser(s, t, e)) -> Parser(s, List(t), e) {
+  fn(input: s) -> Result(Value(s, List(t)), e) {
+    Ok(repeat_helper(parser, input))
   }
 }
 
-pub fn sequential(parsers: List(Parser(t))) -> Parser(List(t)) {
-  fn(tokens: List(Token)) -> Result(ParserValue(List(t)), ParserError) {
-    list.fold(parsers, Ok(ParserValue(tokens:, value: [])), fn(result, parser) {
+pub fn sequential(parsers: List(Parser(s, t, e))) -> Parser(s, List(t), e) {
+  fn(input: s) -> Result(Value(s, List(t)), e) {
+    list.fold(parsers, Ok(Value(input:, value: [])), fn(result, parser) {
       case result {
         Error(error) -> Error(error)
-        Ok(ParserValue(value: values, tokens:)) ->
-          case parser(tokens) {
+        Ok(Value(value: values, input:)) ->
+          case parser(input) {
             Error(error) -> Error(error)
-            Ok(ParserValue(value:, tokens:)) ->
+            Ok(Value(value:, input:)) ->
               // TODO: Figure out where to put the list.reverse to make this
               //       linear instead of quadratic time
-              Ok(ParserValue(value: list.append(values, [value]), tokens:))
+              Ok(Value(value: list.append(values, [value]), input:))
           }
       }
     })
