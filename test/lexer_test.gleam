@@ -66,6 +66,12 @@ pub fn can_lex_string_literal_test() {
   "\"foobarbaz\"" |> lexer.lex |> should.equal([token.String(str: "foobarbaz")])
 }
 
+pub fn can_lex_escaped_string_literal_test() {
+  "\"escaped \\\"quote\\\" string\""
+  |> lexer.lex
+  |> should.equal([token.String(str: "escaped \"quote\" string")])
+}
+
 pub fn can_lex_public_literal_test() {
   "pub" |> lexer.lex |> should.equal([token.Public])
 }
@@ -74,4 +80,45 @@ pub fn can_lex_identifier_literal_test() {
   "foobarbaz"
   |> lexer.lex
   |> should.equal([token.Identifier(name: "foobarbaz")])
+}
+
+pub fn can_lex_simple_function_test() {
+  "pub fn main(argc, argv) {
+  let x = match 3 {
+    1 -> \"hi\"
+    2 -> \"escaped \\\"quote\\\"\"
+    _ -> something_else
+  }
+  x
+}"
+  |> lexer.lex
+  |> should.equal([
+    token.Public,
+    token.Function,
+    token.Identifier(name: "main"),
+    token.LeftParenthesis,
+    token.Identifier(name: "argc"),
+    token.Comma,
+    token.Identifier(name: "argv"),
+    token.RightParenthesis,
+    token.LeftBrace,
+    token.Let,
+    token.Identifier(name: "x"),
+    token.Equals,
+    token.Match,
+    token.Integer(num: 3),
+    token.LeftBrace,
+    token.Integer(num: 1),
+    token.Arrow,
+    token.String(str: "hi"),
+    token.Integer(num: 2),
+    token.Arrow,
+    token.String(str: "escaped \"quote\""),
+    token.Identifier(name: "_"),
+    token.Arrow,
+    token.Identifier(name: "something_else"),
+    token.RightBrace,
+    token.Identifier(name: "x"),
+    token.RightBrace,
+  ])
 }

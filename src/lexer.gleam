@@ -89,10 +89,10 @@ fn internal_lex(
         ["\\", "t", ..rest] -> internal_lex(rest, InString, cur <> "\t", tokens)
         ["\\", "n", ..rest] -> internal_lex(rest, InString, cur <> "\n", tokens)
         ["\\", "\"", ..rest] ->
-          internal_lex(rest, Default, cur <> "\"", [token.String(cur), ..tokens])
+          internal_lex(rest, InString, cur <> "\"", tokens)
         ["\\", ..] -> panic as "Lexing error: Invalid escape character detected"
         ["\"", ..rest] ->
-          internal_lex(rest, Default, "", [token.String(cur), ..tokens])
+          internal_lex(rest, Default, "", [token.String(str: cur), ..tokens])
         [first, ..rest] -> internal_lex(rest, InString, cur <> first, tokens)
       }
   }
