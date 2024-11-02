@@ -3,83 +3,89 @@ import lexer
 import token
 
 pub fn can_lex_let_literal_test() {
-  "let" |> lexer.lex |> should.equal([token.Let])
+  "let" |> lexer.lex |> should.equal([Ok(token.Let)])
 }
 
 pub fn can_lex_function_literal_test() {
-  "fn" |> lexer.lex |> should.equal([token.Function])
+  "fn" |> lexer.lex |> should.equal([Ok(token.Function)])
 }
 
 pub fn can_lex_equals_literal_test() {
-  "=" |> lexer.lex |> should.equal([token.Equals])
+  "=" |> lexer.lex |> should.equal([Ok(token.Equals)])
 }
 
 pub fn can_lex_left_brace_literal_test() {
-  "{" |> lexer.lex |> should.equal([token.LeftBrace])
+  "{" |> lexer.lex |> should.equal([Ok(token.LeftBrace)])
 }
 
 pub fn can_lex_left_bracket_literal_test() {
-  "[" |> lexer.lex |> should.equal([token.LeftBracket])
+  "[" |> lexer.lex |> should.equal([Ok(token.LeftBracket)])
 }
 
 pub fn can_lex_left_parenthesis_literal_test() {
-  "(" |> lexer.lex |> should.equal([token.LeftParenthesis])
+  "(" |> lexer.lex |> should.equal([Ok(token.LeftParenthesis)])
 }
 
 pub fn can_lex_integer_literal_test() {
-  "100" |> lexer.lex |> should.equal([token.Integer(num: 100)])
+  "100" |> lexer.lex |> should.equal([Ok(token.Integer(num: 100))])
+}
+
+pub fn can_lex_negative_integer_literal_test() {
+  "-100" |> lexer.lex |> should.equal([Ok(token.Integer(num: -100))])
 }
 
 pub fn can_lex_match_literal_test() {
-  "match" |> lexer.lex |> should.equal([token.Match])
+  "match" |> lexer.lex |> should.equal([Ok(token.Match)])
 }
 
 pub fn can_lex_plus_literal_test() {
-  "+" |> lexer.lex |> should.equal([token.Plus])
+  "+" |> lexer.lex |> should.equal([Ok(token.Plus)])
 }
 
 pub fn can_lex_comma_literal_test() {
-  "," |> lexer.lex |> should.equal([token.Comma])
+  "," |> lexer.lex |> should.equal([Ok(token.Comma)])
 }
 
 pub fn can_lex_right_brace_literal_test() {
-  "}" |> lexer.lex |> should.equal([token.RightBrace])
+  "}" |> lexer.lex |> should.equal([Ok(token.RightBrace)])
 }
 
 pub fn can_lex_right_bracket_literal_test() {
-  "]" |> lexer.lex |> should.equal([token.RightBracket])
+  "]" |> lexer.lex |> should.equal([Ok(token.RightBracket)])
 }
 
 pub fn can_lex_right_parenthesis_literal_test() {
-  ")" |> lexer.lex |> should.equal([token.RightParenthesis])
+  ")" |> lexer.lex |> should.equal([Ok(token.RightParenthesis)])
 }
 
 pub fn can_lex_pipe_literal_test() {
-  "|" |> lexer.lex |> should.equal([token.Pipe])
+  "|" |> lexer.lex |> should.equal([Ok(token.Pipe)])
 }
 
 pub fn can_lex_arrow_literal_test() {
-  "->" |> lexer.lex |> should.equal([token.Arrow])
+  "->" |> lexer.lex |> should.equal([Ok(token.Arrow)])
 }
 
 pub fn can_lex_string_literal_test() {
-  "\"foobarbaz\"" |> lexer.lex |> should.equal([token.String(str: "foobarbaz")])
+  "\"foobarbaz\""
+  |> lexer.lex
+  |> should.equal([Ok(token.String(str: "foobarbaz"))])
 }
 
 pub fn can_lex_escaped_string_literal_test() {
   "\"escaped \\\"quote\\\" string\""
   |> lexer.lex
-  |> should.equal([token.String(str: "escaped \"quote\" string")])
+  |> should.equal([Ok(token.String(str: "escaped \"quote\" string"))])
 }
 
 pub fn can_lex_public_literal_test() {
-  "pub" |> lexer.lex |> should.equal([token.Public])
+  "pub" |> lexer.lex |> should.equal([Ok(token.Public)])
 }
 
 pub fn can_lex_identifier_literal_test() {
   "foobarbaz"
   |> lexer.lex
-  |> should.equal([token.Identifier(name: "foobarbaz")])
+  |> should.equal([Ok(token.Identifier(name: "foobarbaz"))])
 }
 
 pub fn can_lex_simple_function_test() {
@@ -93,32 +99,32 @@ pub fn can_lex_simple_function_test() {
 }"
   |> lexer.lex
   |> should.equal([
-    token.Public,
-    token.Function,
-    token.Identifier(name: "main"),
-    token.LeftParenthesis,
-    token.Identifier(name: "argc"),
-    token.Comma,
-    token.Identifier(name: "argv"),
-    token.RightParenthesis,
-    token.LeftBrace,
-    token.Let,
-    token.Identifier(name: "x"),
-    token.Equals,
-    token.Match,
-    token.Integer(num: 3),
-    token.LeftBrace,
-    token.Integer(num: 1),
-    token.Arrow,
-    token.String(str: "hi"),
-    token.Integer(num: 2),
-    token.Arrow,
-    token.String(str: "escaped \"quote\""),
-    token.Identifier(name: "_"),
-    token.Arrow,
-    token.Identifier(name: "something_else"),
-    token.RightBrace,
-    token.Identifier(name: "x"),
-    token.RightBrace,
+    Ok(token.Public),
+    Ok(token.Function),
+    Ok(token.Identifier(name: "main")),
+    Ok(token.LeftParenthesis),
+    Ok(token.Identifier(name: "argc")),
+    Ok(token.Comma),
+    Ok(token.Identifier(name: "argv")),
+    Ok(token.RightParenthesis),
+    Ok(token.LeftBrace),
+    Ok(token.Let),
+    Ok(token.Identifier(name: "x")),
+    Ok(token.Equals),
+    Ok(token.Match),
+    Ok(token.Integer(num: 3)),
+    Ok(token.LeftBrace),
+    Ok(token.Integer(num: 1)),
+    Ok(token.Arrow),
+    Ok(token.String(str: "hi")),
+    Ok(token.Integer(num: 2)),
+    Ok(token.Arrow),
+    Ok(token.String(str: "escaped \"quote\"")),
+    Ok(token.Identifier(name: "_")),
+    Ok(token.Arrow),
+    Ok(token.Identifier(name: "something_else")),
+    Ok(token.RightBrace),
+    Ok(token.Identifier(name: "x")),
+    Ok(token.RightBrace),
   ])
 }
