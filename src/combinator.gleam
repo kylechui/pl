@@ -161,7 +161,8 @@ pub fn sequential8(
 pub fn choice(parsers: List(Parser(s, t, e))) -> Parser(s, t, e) {
   fn(input: s) -> Result(Value(s, t), e) {
     case parsers {
-      [] -> panic
+      [] -> panic as "No parsers passed to choice combinator!"
+      [parser] -> parser(input)
       [parser, ..parsers] -> {
         case parser(input) {
           Error(_) -> choice(parsers)(input)
@@ -172,7 +173,7 @@ pub fn choice(parsers: List(Parser(s, t, e))) -> Parser(s, t, e) {
   }
 }
 
-/// Will never yield a e, since it can just not parse
+/// Will never yield an error, since it can just not parse
 pub fn optional(parser: Parser(s, t, e)) -> Parser(s, Option(t), e) {
   fn(input: s) -> Result(Value(s, Option(t)), e) {
     case parser(input) {

@@ -2,6 +2,7 @@ import ast.{type Node}
 import combinator.{Value}
 import gleam/list
 import gleam/option
+import gleam/pair
 import gleam/string
 import token.{type Token}
 
@@ -128,11 +129,7 @@ pub fn parse_function() -> Parser(Node) {
           body_node,
           _,
         ) = value
-        let param_names =
-          list.map(param_names, fn(pair) {
-            let #(name, _) = pair
-            name
-          })
+        let param_names = list.map(param_names, pair.first)
         let param_names = case final_param {
           option.None -> param_names
           option.Some(final_param_name) ->
@@ -151,14 +148,44 @@ pub fn parse_function() -> Parser(Node) {
   }
 }
 
+pub fn parse_function_call() -> Parser(Node) {
+  fn(input) {
+    input
+    |> combinator.map(
+      combinator.sequential4(
+        parse_identifier(),
+        parse_literal(token.LeftParenthesis),
+        combinator.sequential2(
+          combinator.repeat(combinator.sequential2(
+            parse_expression(),
+            parse_literal(token.Comma),
+          )),
+          combinator.optional(parse_expression()),
+        ),
+        parse_literal(token.RightParenthesis),
+      ),
+      fn(tuple) {
+        let #(function_name, _, #(args, final_arg), _) = tuple
+        let args = args |> list.map(pair.first)
+        let args = case final_arg {
+          option.None -> args
+          option.Some(final_arg) -> list.append(args, [final_arg])
+        }
+        ast.FunctionCall(name: function_name, args:)
+      },
+    )
+  }
+}
+
 pub fn parse_expression() -> Parser(Node) {
   fn(input) {
     input
     |> combinator.choice([
+      parse_function_call(),
+      parse_let(),
       combinator.map(parse_int(), fn(num) { ast.Integer(num:) }),
       combinator.map(parse_string(), fn(str) { ast.String(str:) }),
       combinator.map(parse_identifier(), fn(name) { ast.Identifier(name:) }),
-      parse_let(),
     ])
   }
 }

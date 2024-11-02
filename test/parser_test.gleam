@@ -78,3 +78,87 @@ pub fn can_parse_nested_let_test() {
     ),
   )
 }
+
+pub fn can_parse_function_call_test() {
+  [
+    token.Identifier(name: "foo"),
+    token.LeftParenthesis,
+    token.Identifier(name: "first_arg"),
+    token.Comma,
+    token.Integer(num: 100),
+    token.RightParenthesis,
+  ]
+  |> parser.parse_function_call()
+  |> should.equal(
+    Ok(
+      Value(
+        value: ast.FunctionCall(name: "foo", args: [
+          ast.Identifier(name: "first_arg"),
+          ast.Integer(num: 100),
+        ]),
+        input: [],
+      ),
+    ),
+  )
+}
+
+pub fn can_parse_function_call_with_trailing_comma_test() {
+  [
+    token.Identifier(name: "foo"),
+    token.LeftParenthesis,
+    token.Identifier(name: "first_arg"),
+    token.Comma,
+    token.Integer(num: 100),
+    token.Comma,
+    token.RightParenthesis,
+  ]
+  |> parser.parse_function_call()
+  |> should.equal(
+    Ok(
+      Value(
+        value: ast.FunctionCall(name: "foo", args: [
+          ast.Identifier(name: "first_arg"),
+          ast.Integer(num: 100),
+        ]),
+        input: [],
+      ),
+    ),
+  )
+}
+
+pub fn can_parse_nested_function_call_test() {
+  [
+    token.Identifier(name: "foo"),
+    token.LeftParenthesis,
+    token.Identifier(name: "bar"),
+    token.LeftParenthesis,
+    token.RightParenthesis,
+    token.Comma,
+    token.Identifier(name: "baz"),
+    token.LeftParenthesis,
+    token.Integer(num: 20),
+    token.Comma,
+    token.Integer(num: 32),
+    token.RightParenthesis,
+    token.Comma,
+    token.String(str: "hello"),
+    token.Comma,
+    token.RightParenthesis,
+  ]
+  |> parser.parse_function_call()
+  |> should.equal(
+    Ok(
+      Value(
+        value: ast.FunctionCall(name: "foo", args: [
+          ast.FunctionCall(name: "bar", args: []),
+          ast.FunctionCall(name: "baz", args: [
+            ast.Integer(num: 20),
+            ast.Integer(num: 32),
+          ]),
+          ast.String(str: "hello"),
+        ]),
+        input: [],
+      ),
+    ),
+  )
+}
