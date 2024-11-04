@@ -17,7 +17,10 @@ pub type LexError {
   InvalidIdentifier(got: String)
 }
 
-pub fn lex(input: String) -> List(#(Result(Token, LexError), Index)) {
+type IndexedResult =
+  #(Result(Token, LexError), Index)
+
+pub fn lex(input: String) -> List(IndexedResult) {
   input
   |> string.to_graphemes
   |> internal_lex(Default(index: 0), "", [])
@@ -29,8 +32,8 @@ fn internal_lex(
   input: List(String),
   state: State,
   cur: String,
-  tokens: List(#(Result(Token, LexError), Index)),
-) -> List(#(Result(Token, LexError), Index)) {
+  tokens: List(IndexedResult),
+) -> List(IndexedResult) {
   case state {
     Default(index:) ->
       case input {
@@ -178,9 +181,9 @@ fn internal_lex(
 
 fn add_identifier(
   cur: String,
-  tokens: List(#(Result(Token, LexError), Index)),
+  tokens: List(IndexedResult),
   index: Index,
-) -> List(#(Result(Token, LexError), Index)) {
+) -> List(IndexedResult) {
   case cur {
     "" -> tokens
     "fn" -> [#(Ok(token.Function), index - string.length(cur)), ..tokens]
