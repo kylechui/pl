@@ -1,3 +1,4 @@
+import buffer.{type Index}
 import gleam/float
 import gleam/int
 import gleam/list
@@ -6,19 +7,20 @@ import gleam/string
 import token.{type Token}
 
 type State {
-  Default
-  InString
+  Default(index: Index)
+  InString(start_index: Index, index: Index)
 }
 
 pub type LexError {
+  StringTermination
   InvalidEscapeSequence
   InvalidIdentifier(got: String)
 }
 
-pub fn lex(input: String) -> List(Result(Token, LexError)) {
+pub fn lex(input: String) -> List(#(Result(Token, LexError), Index)) {
   input
   |> string.to_graphemes
-  |> internal_lex(Default, "", [])
+  |> internal_lex(Default(index: 0), "", [])
   |> list.reverse
 }
 
@@ -27,113 +29,192 @@ fn internal_lex(
   input: List(String),
   state: State,
   cur: String,
-  tokens: List(Result(Token, LexError)),
-) -> List(Result(Token, LexError)) {
+  tokens: List(#(Result(Token, LexError), Index)),
+) -> List(#(Result(Token, LexError), Index)) {
   case state {
-    Default ->
+    Default(index:) ->
       case input {
-        [] -> add_identifier(cur, tokens)
+        [] -> add_identifier(cur, tokens, index)
         ["-", ">", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.Arrow), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 2), "", [
+            #(Ok(token.Arrow), index),
+            ..new_tokens
+          ])
         }
         [",", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.Comma), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.Comma), index),
+            ..new_tokens
+          ])
         }
         ["\"", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, InString, "", new_tokens)
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(
+            rest,
+            InString(start_index: index, index: index + 1),
+            "",
+            new_tokens,
+          )
         }
         ["+", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.Plus), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.Plus), index),
+            ..new_tokens
+          ])
         }
         ["=", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.Equals), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.Equals), index),
+            ..new_tokens
+          ])
         }
         ["|", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.Pipe), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.Pipe), index),
+            ..new_tokens
+          ])
         }
         ["(", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [
-            Ok(token.LeftParenthesis),
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.LeftParenthesis), index),
             ..new_tokens
           ])
         }
         [")", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [
-            Ok(token.RightParenthesis),
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.RightParenthesis), index),
             ..new_tokens
           ])
         }
         ["[", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.LeftBracket), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.LeftBracket), index),
+            ..new_tokens
+          ])
         }
         ["]", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.RightBracket), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.RightBracket), index),
+            ..new_tokens
+          ])
         }
         ["{", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.LeftBrace), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.LeftBrace), index),
+            ..new_tokens
+          ])
         }
         ["}", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", [Ok(token.RightBrace), ..new_tokens])
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.RightBrace), index),
+            ..new_tokens
+          ])
         }
         [" ", ..rest] | ["\t", ..rest] | ["\n", ..rest] -> {
-          let new_tokens = add_identifier(cur, tokens)
-          internal_lex(rest, Default, "", new_tokens)
+          let new_tokens = add_identifier(cur, tokens, index)
+          internal_lex(rest, Default(index: index + 1), "", new_tokens)
         }
-        [first, ..rest] -> internal_lex(rest, Default, cur <> first, tokens)
+        [first, ..rest] ->
+          internal_lex(rest, Default(index: index + 1), cur <> first, tokens)
       }
-    InString ->
+    InString(start_index:, index:) ->
       case input {
-        [] -> panic as "Lexing error: Cannot terminate program mid-string"
-        ["\n", ..] -> panic as "Lexing error: Cannot terminate line mid-string"
+        [] | ["\n", ..] -> [#(Error(StringTermination), index), ..tokens]
         ["\\", "\\", ..rest] ->
-          internal_lex(rest, InString, cur <> "\\", tokens)
-        ["\\", "t", ..rest] -> internal_lex(rest, InString, cur <> "\t", tokens)
-        ["\\", "n", ..rest] -> internal_lex(rest, InString, cur <> "\n", tokens)
+          internal_lex(
+            rest,
+            InString(start_index:, index: index + 2),
+            cur <> "\\",
+            tokens,
+          )
+        ["\\", "t", ..rest] ->
+          internal_lex(
+            rest,
+            InString(start_index:, index: index + 2),
+            cur <> "\t",
+            tokens,
+          )
+        ["\\", "n", ..rest] ->
+          internal_lex(
+            rest,
+            InString(start_index:, index: index + 2),
+            cur <> "\n",
+            tokens,
+          )
         ["\\", "\"", ..rest] ->
-          internal_lex(rest, InString, cur <> "\"", tokens)
-        ["\\", ..] -> panic as "Lexing error: Invalid escape character detected"
+          internal_lex(
+            rest,
+            InString(start_index:, index: index + 2),
+            cur <> "\"",
+            tokens,
+          )
+        ["\\", ..] -> [#(Error(InvalidEscapeSequence), index), ..tokens]
         ["\"", ..rest] ->
-          internal_lex(rest, Default, "", [Ok(token.String(str: cur)), ..tokens])
-        [first, ..rest] -> internal_lex(rest, InString, cur <> first, tokens)
+          internal_lex(rest, Default(index: index + 1), "", [
+            #(Ok(token.String(str: cur)), start_index),
+            ..tokens
+          ])
+        [first, ..rest] ->
+          internal_lex(
+            rest,
+            InString(start_index:, index: index + 1),
+            cur <> first,
+            tokens,
+          )
       }
   }
 }
 
 fn add_identifier(
   cur: String,
-  tokens: List(Result(Token, LexError)),
-) -> List(Result(Token, LexError)) {
+  tokens: List(#(Result(Token, LexError), Index)),
+  index: Index,
+) -> List(#(Result(Token, LexError), Index)) {
   case cur {
     "" -> tokens
-    "fn" -> [Ok(token.Function), ..tokens]
-    "let" -> [Ok(token.Let), ..tokens]
-    "pub" -> [Ok(token.Public), ..tokens]
-    "match" -> [Ok(token.Match), ..tokens]
+    "fn" -> [#(Ok(token.Function), index - string.length(cur)), ..tokens]
+    "let" -> [#(Ok(token.Let), index - string.length(cur)), ..tokens]
+    "pub" -> [#(Ok(token.Public), index - string.length(cur)), ..tokens]
+    "match" -> [#(Ok(token.Match), index - string.length(cur)), ..tokens]
     cur -> {
       // TODO: Is there a way to avoid this nesting?
       case int.parse(cur) {
-        Ok(num) -> [Ok(token.Integer(num:)), ..tokens]
+        Ok(num) -> [
+          #(Ok(token.Integer(num:)), index - string.length(cur)),
+          ..tokens
+        ]
         Error(Nil) ->
           case float.parse(cur) {
-            Ok(num) -> [Ok(token.Float(num:)), ..tokens]
+            Ok(num) -> [
+              #(Ok(token.Float(num:)), index - string.length(cur)),
+              ..tokens
+            ]
             Error(Nil) -> {
               let assert Ok(identifier_regex) =
                 regex.from_string("^[a-z_][a-z0-9_]*$")
               case regex.check(with: identifier_regex, content: cur) {
-                True -> [Ok(token.Identifier(name: cur)), ..tokens]
-                False -> [Error(InvalidIdentifier(got: cur)), ..tokens]
+                True -> [
+                  #(Ok(token.Identifier(name: cur)), index - string.length(cur)),
+                  ..tokens
+                ]
+                False -> [
+                  #(
+                    Error(InvalidIdentifier(got: cur)),
+                    index - string.length(cur),
+                  ),
+                  ..tokens
+                ]
               }
             }
           }
